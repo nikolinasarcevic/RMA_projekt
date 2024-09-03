@@ -97,19 +97,12 @@ import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.tasks.await
 import android.Manifest.permission.ACCESS_FINE_LOCATION
-import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.icons.Icons
-import androidx.compose.material3.BottomSheetScaffold
-import androidx.compose.material3.rememberBottomSheetScaffoldState
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.draw.clip
 import coil.compose.rememberImagePainter
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -117,39 +110,35 @@ import com.google.accompanist.permissions.isGranted
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
-import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.storage
-import com.google.maps.android.compose.Circle
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 
 class MainActivity : ComponentActivity() {
+
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge() // Omogućuje prikaz aktivnosti preko cijelog ekrana
         setContent {
             val navController = rememberNavController()
             val context = LocalContext.current
 
-            // Provjerite stanje prijave iz SharedPreferences
-            val isLoggedIn = remember { mutableStateOf(false) }
+            // Provjerava je li korisnik prijavljen na temelju SharedPreferences
+            val isLoggedIn = remember { mutableStateOf(false) } // Stanje prijave pohranjeno u mutableStateOf
             LaunchedEffect(Unit) {
-                val sharedPref = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-                isLoggedIn.value = sharedPref.getBoolean("is_logged_in", false)
+                val sharedPref = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE) // Dohvaća SharedPreferences
+                isLoggedIn.value = sharedPref.getBoolean("is_logged_in", false) // Postavlja stanje prijave
             }
 
+
             NavigaTour_projektTheme {
+                // navigacija između ekrana
                 NavHost(
-                    navController = navController,
-                    startDestination = if (isLoggedIn.value) "home" else "main"
+                    navController = navController, // Povezuje navController
+                    startDestination = if (isLoggedIn.value) "home" else "main" //
                 ) {
                     composable("main") { MainScreen(navController = navController) }
                     composable("login") { LoginScreen(navController = navController) }
@@ -158,7 +147,7 @@ class MainActivity : ComponentActivity() {
                     composable("profile") { ProfileScreen(navController = navController) }
                     composable("add") { backStackEntry ->
                         val viewModel: AddGroupViewModel =
-                            viewModel() // Koristite viewModel() za pružanje ViewModel
+                            viewModel()
                         AddScreen(navController, viewModel)
                     }
                     composable("remove_groups") { RemoveScreen(navController = navController) }
@@ -166,7 +155,7 @@ class MainActivity : ComponentActivity() {
                     composable("item/{groupName}") { backStackEntry ->
                         val groupName = backStackEntry.arguments?.getString("groupName")
                         if (groupName != null) {
-                            // Koristite postojeći navController, nemojte kreirati novi
+                            // Koristi postojeći navController, ne stvara novi
                             ItemScreen(navController = navController, groupName = groupName)
                         }
                     }
@@ -175,8 +164,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
     @Composable
     fun MainScreen(navController: NavController) {
+
 
         Box(
             modifier = Modifier
@@ -184,12 +175,14 @@ class MainActivity : ComponentActivity() {
                 .background(colorResource(id = R.color.primary_color)),
             contentAlignment = Alignment.Center
         ) {
+
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxSize()
             ) {
                 Spacer(modifier = Modifier.weight(1f))
+
                 Image(
                     painter = painterResource(id = R.drawable.logo),
                     contentDescription = null,
@@ -200,6 +193,7 @@ class MainActivity : ComponentActivity() {
                         .padding(bottom = 20.dp)
                 )
                 Spacer(modifier = Modifier.weight(1f))
+
                 Row(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.Bottom,
@@ -207,6 +201,7 @@ class MainActivity : ComponentActivity() {
                         .fillMaxWidth()
                         .padding(bottom = 50.dp, start = 20.dp, end = 20.dp)
                 ) {
+
                     OutlinedButton(
                         onClick = { navController.navigate("login") },
                         modifier = Modifier
@@ -219,6 +214,7 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Text(text = "PRIJAVA")
                     }
+
                     Button(
                         onClick = { navController.navigate("register") },
                         modifier = Modifier
@@ -235,6 +231,8 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+
 
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
@@ -340,7 +338,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         else -> {
-                            // Ako je uneseni tekst korisničko ime, najprije pronađi e-mail
+                            // Funkcija za pronalaženje e-mail adrese korisnika na temelju korisničkog imena
                             findUserEmailByUsername(
                                 username = username,
                                 onEmailFound = { email ->
@@ -395,7 +393,7 @@ class MainActivity : ComponentActivity() {
         FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    // Prijava je uspješna, dohvatite podatke o korisniku iz Firestore
+
                     val currentUser = FirebaseAuth.getInstance().currentUser
                     currentUser?.let {
                         val db = FirebaseFirestore.getInstance()
@@ -404,7 +402,7 @@ class MainActivity : ComponentActivity() {
                         userRef.get()
                             .addOnSuccessListener { document ->
                                 if (document.exists()) {
-                                    // Ako su podaci uspješno dohvaćeni, nastavite s navigacijom
+
                                     saveLoginState(context, true)
                                     onSuccess()
                                 } else {
@@ -416,7 +414,7 @@ class MainActivity : ComponentActivity() {
                             }
                     }
                 } else {
-                    // Došlo je do greške prilikom prijave
+
                     val errorCode = (task.exception as? FirebaseAuthException)?.errorCode
                     val errorMessage = firebaseErrorMessages[errorCode]
                         ?: "Došlo je do greške prilikom prijave"
@@ -451,6 +449,7 @@ class MainActivity : ComponentActivity() {
             }
     }
 
+    // Mapa s porukama o greškama prilikom prijave u Firebase Authentication
     private val firebaseErrorMessages = mapOf(
         "ERROR_INVALID_EMAIL" to "Nevažeća e-mail adresa",
         "ERROR_WRONG_PASSWORD" to "Pogrešna lozinka",
@@ -637,7 +636,7 @@ class MainActivity : ComponentActivity() {
                                     "Uspješno ste se registrirali",
                                     Toast.LENGTH_SHORT
                                 ).show()
-                                navController.popBackStack() // Navigates back after registration
+                                navController.popBackStack()
                             },
                             onError = { errorMessage ->
                                 errorText = errorMessage
@@ -724,14 +723,18 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun HomeScreen(navController: NavController) {
         val context = LocalContext.current
+
+        // Stanje za pohranu lista grupa (naziv grupe i URL slike)
         val groups = remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+
+        // Dobivanje trenutnog odredišta navigacije
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
 
-        // State to store the current user's name
+        // Stanje za pohranu imena trenutnog korisnika
         val currentUserName = remember { mutableStateOf("") }
 
-        // Fetch the current user's name using Firebase Authentication
+        // Dohvaćanje imena trenutnog korisnika koristeći Firebase Authentication
         LaunchedEffect(Unit) {
             val auth = FirebaseAuth.getInstance()
             val currentUser = auth.currentUser
@@ -740,18 +743,21 @@ class MainActivity : ComponentActivity() {
                 val userDocRef = db.collection("users").document(currentUser.uid)
                 userDocRef.get()
                     .addOnSuccessListener { document ->
+                        // Dobivanje korisničkog imena iz Firestore dokumenta
                         val username = document.getString("username") ?: "Nepoznati korisnik"
                         currentUserName.value = username
                     }
                     .addOnFailureListener {
+                        // Prikazivanje poruke o grešci ako dohvaćanje korisničkog imena ne uspije
                         Toast.makeText(context, "Greška pri dohvaćanju korisničkog imena", Toast.LENGTH_SHORT).show()
                     }
             } else {
+                // Prikazivanje poruke ako korisnik nije prijavljen
                 Toast.makeText(context, "Niste prijavljeni", Toast.LENGTH_SHORT).show()
             }
         }
 
-        // Fetch groups where the current user is a member
+        // Dohvaćanje grupa u kojima je trenutni korisnik član
         LaunchedEffect(currentUserName.value) {
             val auth = FirebaseAuth.getInstance()
             val currentUser = auth.currentUser
@@ -764,22 +770,26 @@ class MainActivity : ComponentActivity() {
                     .addOnSuccessListener { documents ->
                         val groupList = mutableListOf<Pair<String, String>>()
                         for (document in documents) {
+                            // Dobivanje naziva grupe i URL slike iz Firestore dokumenta
                             val groupName = document.getString("name") ?: ""
                             val imageUrl = document.getString("image") ?: ""
                             groupList.add(Pair(groupName, imageUrl))
                         }
-                        groups.value = groupList
+                        groups.value = groupList // Ažuriranje stanja s listom grupa
                     }
                     .addOnFailureListener {
+                        // Prikazivanje poruke o grešci ako dohvaćanje grupa ne uspije
                         Toast.makeText(context, "Greška s učitavanjem grupa", Toast.LENGTH_SHORT).show()
                     }
             }
         }
 
+        // Scaffold pruža osnovnu strukturu ekrana s top barom, bottom barom i sadržajem
         Scaffold(
             topBar = {
                 TopAppBar(
                     title = {
+                        // Prikaz logotipa u top baru
                         Image(
                             painter = painterResource(id = R.drawable.navbar_logo),
                             contentDescription = "Logo",
@@ -793,19 +803,22 @@ class MainActivity : ComponentActivity() {
                         titleContentColor = colorResource(id = R.color.white)
                     ),
                     modifier = Modifier
-                        .border(1.dp, colorResource(id = R.color.grey))
+                        .border(1.dp, colorResource(id = R.color.grey)) // Dodavanje obruba top baru
                 )
             },
             bottomBar = {
+                // Prikazivanje donje navigacijske trake
                 BottomNavigationBar(navController = navController, currentRoute = currentRoute)
             },
             content = { padding ->
+                // Glavni sadržaj ekrana
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
                         .background(colorResource(id = R.color.primary_color))
                 ) {
+                    // Prikaz poruke ako korisnik nije član nijedne grupe
                     if (groups.value.isEmpty()) {
                         Text(
                             text = "Ne nalazite se ni u jednoj grupi",
@@ -817,12 +830,14 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    // Prikazivanje liste grupa pomoću LazyColumn
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = 16.dp)
                     ) {
                         items(groups.value) { (groupName, imageUrl) ->
+                            // Svaka stavka u listi grupa je prikazana pomoću GroupItem komponente
                             GroupItem(
                                 groupName = groupName,
                                 imageUrl = imageUrl,
@@ -837,31 +852,39 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun GroupItem(groupName: String, imageUrl: String, navController: NavController) {
+        // Učitavanje slike grupe koristeći Coil
         val painter = rememberImagePainter(
             data = imageUrl,
             builder = {
-                crossfade(true)
-                placeholder(R.drawable.placeholder_image)
+                crossfade(true) // Omogućavanje prijelaza
+                placeholder(R.drawable.placeholder_image) // Placeholder slika dok se učitava
             }
         )
 
         val borderColor = colorResource(id = R.color.grey)
 
-        // Use a Box to draw the border across the entire screen width
+        // Box za crtanje obruba ispod svakog GroupItema
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .drawBehind {
-                    val strokeWidth = 1.dp.toPx() // Maintain the standard border thickness
-                    val y = size.height - strokeWidth / 2 // Draw line at the very bottom
+                    val strokeWidth = 1.dp.toPx() // Debljina linije
+                    val y = size.height - strokeWidth / 2 // Pozicija linije na dnu
                     drawLine(
                         color = borderColor,
-                        start = Offset(-32.dp.toPx(), y), // Extend the line beyond the start of padding
-                        end = Offset(size.width + 32.dp.toPx(), y), // Extend the line beyond the end of padding
+                        start = Offset(
+                            -32.dp.toPx(),
+                            y
+                        ), // Produženje linije izvan početka paddinga
+                        end = Offset(
+                            size.width + 32.dp.toPx(),
+                            y
+                        ), // Produženje linije izvan kraja paddinga
                         strokeWidth = strokeWidth
                     )
                 }
                 .clickable {
+                    // Navigacija na detalje grupe kada se klikne na GroupItem
                     navController.navigate("item/$groupName")
                 }
         ) {
@@ -870,6 +893,7 @@ class MainActivity : ComponentActivity() {
                     .fillMaxWidth()
                     .padding(horizontal = 32.dp, vertical = 16.dp)
             ) {
+                // Prikaz slike grupe unutar kružnog okvira
                 Box(
                     modifier = Modifier
                         .size(48.dp)
@@ -884,8 +908,9 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                Spacer(modifier = Modifier.width(32.dp))
+                Spacer(modifier = Modifier.width(32.dp)) // Razmak između slike i naziva grupe
 
+                // Prikaz naziva grupe
                 Text(
                     text = groupName,
                     color = Color.White,
@@ -896,8 +921,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
-
     @Composable
     fun BottomNavigationBar(navController: NavController, currentRoute: String?) {
 
@@ -906,9 +929,10 @@ class MainActivity : ComponentActivity() {
                 .fillMaxWidth()
                 .background(colorResource(id = R.color.white))
                 .padding(bottom = 20.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
+            horizontalArrangement = Arrangement.SpaceAround, // Raspored ikona ravnomjerno
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Ikona za Home
             BottomNavIcon(
                 iconId = R.drawable.home_outlined,
                 activeIconId = R.drawable.home_focused,
@@ -917,6 +941,7 @@ class MainActivity : ComponentActivity() {
                 route = "home",
                 currentRoute = currentRoute
             )
+            // Ikona za Remove Groups
             BottomNavIcon(
                 iconId = R.drawable.remove_group_outlined,
                 activeIconId = R.drawable.remove_group_focused,
@@ -925,6 +950,7 @@ class MainActivity : ComponentActivity() {
                 route = "remove_groups",
                 currentRoute = currentRoute
             )
+            // Ikona za Add (s većom veličinom)
             BottomNavIcon(
                 iconId = R.drawable.add,
                 activeIconId = R.drawable.add,
@@ -932,8 +958,9 @@ class MainActivity : ComponentActivity() {
                 navController = navController,
                 route = "add",
                 currentRoute = currentRoute,
-                size = 50.dp
+                size = 50.dp // Veća veličina ikone
             )
+            // Ikona za Compass
             BottomNavIcon(
                 iconId = R.drawable.compass_outlined,
                 activeIconId = R.drawable.compass_focused,
@@ -942,6 +969,7 @@ class MainActivity : ComponentActivity() {
                 route = "compass",
                 currentRoute = currentRoute
             )
+            // Ikona za Profile
             BottomNavIcon(
                 iconId = R.drawable.person_outlined,
                 activeIconId = R.drawable.person_focused,
@@ -953,7 +981,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
     @Composable
     fun BottomNavIcon(
         iconId: Int,
@@ -962,22 +989,27 @@ class MainActivity : ComponentActivity() {
         navController: NavController,
         route: String,
         currentRoute: String?,
-        size: Dp = 24.dp // Default size for icons
+        size: Dp = 24.dp // Zadana veličina ikona
     ) {
+        // Provjera je li trenutna ruta ista kao ruta ove ikone
         val isActive = route == currentRoute
+        // Odabir prikladne slike ikone ovisno o aktivnom stanju
         val iconPainter = painterResource(id = if (isActive) activeIconId else iconId)
+        // Odabir boje ikone ovisno o aktivnom stanju
         val iconColor =
             if (isActive) colorResource(id = R.color.secondary_color) else colorResource(id = R.color.primary_color)
 
+        // Prikazivanje ikone
         Icon(
             painter = iconPainter,
             contentDescription = contentDescription,
             modifier = Modifier
-                .size(size)
-                .clickable { navController.navigate(route) },
-            tint = iconColor
+                .size(size) // Postavljanje veličine ikone
+                .clickable { navController.navigate(route) }, // Navigacija na odgovarajuću rutu kada se klikne
+            tint = iconColor // Postavljanje boje ikone
         )
     }
+
 
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -1113,7 +1145,8 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    fun saveLoginState(context: Context, isLoggedIn: Boolean) {
+    // Funkcija za spremanje stanja prijave
+    private fun saveLoginState(context: Context, isLoggedIn: Boolean) {
         val sharedPref = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
         with(sharedPref.edit()) {
             putBoolean("is_logged_in", isLoggedIn)
@@ -1164,7 +1197,7 @@ class MainActivity : ComponentActivity() {
                     viewModel.getCurrentUserName { username ->
                         currentUserName = username
                         viewModel.getAllUsersExceptCurrent(currentUserName) { users ->
-                            // Update the list of users
+
                             allUsers = users
                         }
                     }
@@ -1351,7 +1384,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        fun createGroup(
+        private fun createGroup(
             context: Context,
             navController: NavController,
             groupName: String,
@@ -1399,7 +1432,7 @@ class MainActivity : ComponentActivity() {
                 }
                 .addOnFailureListener { exception ->
                     Log.e("AddGroupViewModel", "Error fetching users", exception)
-                    // Handle failure, perhaps inform the user
+
                 }
         }
 
@@ -1439,10 +1472,10 @@ class MainActivity : ComponentActivity() {
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
 
-        // State to store the current user's name
+        // Stanje za pohranu korisničkog imena
         val currentUserName = remember { mutableStateOf("") }
 
-        // Fetch the current user's name using Firebase Authentication
+        // Dohvaćanje korisničkog imena koristeći Firebase Authentication
         LaunchedEffect(Unit) {
             val auth = FirebaseAuth.getInstance()
             val currentUser = auth.currentUser
@@ -1454,12 +1487,12 @@ class MainActivity : ComponentActivity() {
                         val username = document.getString("username") ?: "Nepoznati korisnik"
                         currentUserName.value = username
 
-                        // Fetch groups created by the current user
+                        // Dohvaćanje grupa koje je stvorio trenutni korisnik
                         db.collection("groups")
                             .whereEqualTo("createdBy", username)
                             .get()
                             .addOnSuccessListener { documents ->
-                                groups.value = documents.documents
+                                groups.value = documents.documents  // Postavljanje dohvaćenih grupa u stanje
                             }
                             .addOnFailureListener { exception ->
                                 Toast.makeText(context, "Greška s učitavanjem grupa", Toast.LENGTH_SHORT).show()
@@ -1470,9 +1503,10 @@ class MainActivity : ComponentActivity() {
                     }
             } else {
                 Toast.makeText(context, "Niste prijavljeni", Toast.LENGTH_SHORT).show()
-                // Handle user not logged in, perhaps navigate to login screen
+
             }
         }
+
 
         Scaffold(
             topBar = {
@@ -1506,16 +1540,16 @@ class MainActivity : ComponentActivity() {
                         .padding(padding)
                         .background(colorResource(id = R.color.primary_color))
                         .padding(16.dp),
-                    verticalArrangement = Arrangement.SpaceBetween // Spacing between items
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxWidth()
-                            .verticalScroll(rememberScrollState()) // Make the group list scrollable
-                            .padding(bottom = 16.dp) // Padding to avoid overlap with the button
+                            .verticalScroll(rememberScrollState())  // Omogućuje skrolanje kroz listu grupa
+                            .padding(bottom = 16.dp)  // Dodavanje razmaka na dnu kako bi se izbjeglo preklapanje s gumbom
                     ) {
-                        if (groups.value.isEmpty()) {
+                        if (groups.value.isEmpty()) {  // Provjera da li je lista grupa prazna
                             Text(
                                 text = "Niste kreirali nijednu grupu",
                                 color = colorResource(id = R.color.white),
@@ -1523,7 +1557,7 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier.align(Alignment.CenterHorizontally)
                             )
                         } else {
-                            groups.value.forEach { group ->
+                            groups.value.forEach { group ->  // Iteracija kroz svaku grupu
                                 val groupId = group.id
                                 val groupName = group.getString("name") ?: ""
 
@@ -1532,7 +1566,7 @@ class MainActivity : ComponentActivity() {
                                     isSelected = selectedGroups.value.contains(groupId),
                                     onSelectChange = { isSelected ->
                                         selectedGroups.value = if (isSelected) {
-                                            selectedGroups.value + groupId
+                                            selectedGroups.value + groupId  // Dodavanje ili uklanjanje grupe iz odabranih grupa
                                         } else {
                                             selectedGroups.value - groupId
                                         }
@@ -1542,7 +1576,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    if (selectedGroups.value.isNotEmpty()) {
+                    if (selectedGroups.value.isNotEmpty()) {  // Provjera da li su neke grupe odabrane
                         Button(
                             onClick = {
                                 deleteSelectedGroups(
@@ -1550,7 +1584,7 @@ class MainActivity : ComponentActivity() {
                                     navController = navController,
                                     groupIds = selectedGroups.value.toList(),
                                     onDeleteSuccess = {
-                                        selectedGroups.value = emptySet()
+                                        selectedGroups.value = emptySet()  // Poništavanje odabranih grupa nakon brisanja
                                         groups.value = groups.value.filter { it.id !in selectedGroups.value }
                                     }
                                 )
@@ -1578,17 +1612,17 @@ class MainActivity : ComponentActivity() {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp) // Adjusted padding for spacing
+                .padding(vertical = 8.dp)
                 .background(Color.Transparent)
                 .border(
                     width = 1.dp,
                     color = colorResource(id = R.color.grey),
                     shape = RectangleShape
                 )
-                .clickable { onSelectChange(!isSelected) }
-                .padding(horizontal = 16.dp, vertical = 12.dp) // Adjusted padding for content
+                .clickable { onSelectChange(!isSelected) }  // Omogućava klik na cijeli red za odabir ili poništavanje odabira
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            Spacer(modifier = Modifier.weight(1f)) // Spacer to push content to the left
+            Spacer(modifier = Modifier.weight(1f))
 
             Text(
                 text = groupName,
@@ -1597,11 +1631,11 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.align(Alignment.CenterVertically)
             )
 
-            Spacer(modifier = Modifier.width(16.dp)) // Space between text and checkbox
+            Spacer(modifier = Modifier.width(16.dp))
 
             Checkbox(
-                checked = isSelected,
-                onCheckedChange = { onSelectChange(it) },
+                checked = isSelected,  // Provjera je li stavka odabrana
+                onCheckedChange = { onSelectChange(it) },  // Ažuriranje stanja odabira
                 colors = CheckboxDefaults.colors(
                     checkedColor = colorResource(id = R.color.white),
                     uncheckedColor = colorResource(id = R.color.white)
@@ -1610,7 +1644,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    fun deleteSelectedGroups(
+    private fun deleteSelectedGroups(
         context: Context,
         navController: NavController,
         groupIds: List<String>,
@@ -1621,23 +1655,24 @@ class MainActivity : ComponentActivity() {
 
         groupIds.forEach { groupId ->
             val groupRef = db.collection("groups").document(groupId)
-            batch.delete(groupRef)
+            batch.delete(groupRef)  // Priprema za brisanje svake odabrane grupe
         }
 
-        batch.commit()
+        batch.commit()  // Pokretanje batch operacije brisanja
             .addOnSuccessListener {
                 Toast.makeText(context, "Odabrane grupe su uspješno obrisane", Toast.LENGTH_SHORT)
                     .show()
-                onDeleteSuccess()
+                onDeleteSuccess()  // Poziv funkcije za uspješno brisanje
                 navController.navigate("home") {
-                    popUpTo("remove") { inclusive = true }
+                    popUpTo("remove") { inclusive = true }  // Vraćanje na početni ekran nakon brisanja
                 }
             }
             .addOnFailureListener { exception ->
                 Toast.makeText(context, "Greška pri brisanju grupa", Toast.LENGTH_SHORT).show()
-                Log.e("RemoveScreen", "Error deleting groups", exception)
+                Log.e("RemoveScreen", "Error deleting groups", exception)  // Prikaz greške u logu
             }
     }
+
 
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -1645,23 +1680,23 @@ class MainActivity : ComponentActivity() {
     fun CompassScreen(navController: NavController) {
         val context = LocalContext.current
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        val rotation = remember { mutableStateOf(0f) }
-        val gravity = remember { FloatArray(3) }
-        val geomagnetic = remember { FloatArray(3) }
+        val rotation = remember { mutableStateOf(0f) }  // Stanje za pohranu trenutne rotacije
+        val gravity = remember { FloatArray(3) }  // Polje za pohranu podataka sa senzora akcelerometra
+        val geomagnetic = remember { FloatArray(3) }  // Polje za pohranu podataka sa senzora magnetometra
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
 
-        // Setup sensor listener
+        // Postavljanje slušatelja senzora
         DisposableEffect(Unit) {
             val sensorEventListener = object : SensorEventListener {
                 override fun onSensorChanged(event: SensorEvent) {
                     when (event.sensor.type) {
                         Sensor.TYPE_ACCELEROMETER -> {
-                            System.arraycopy(event.values, 0, gravity, 0, event.values.size)
+                            System.arraycopy(event.values, 0, gravity, 0, event.values.size)  // Ažuriranje podataka sa akcelerometra
                         }
 
                         Sensor.TYPE_MAGNETIC_FIELD -> {
-                            System.arraycopy(event.values, 0, geomagnetic, 0, event.values.size)
+                            System.arraycopy(event.values, 0, geomagnetic, 0, event.values.size)  // Ažuriranje podataka sa magnetometra
                         }
                     }
 
@@ -1670,10 +1705,10 @@ class MainActivity : ComponentActivity() {
                     if (SensorManager.getRotationMatrix(R, I, gravity, geomagnetic)) {
                         val orientation = FloatArray(3)
                         SensorManager.getOrientation(R, orientation)
-                        // orientation[0] is the azimuth (rotation around the Z axis)
+
                         var azimuth = Math.toDegrees(orientation[0].toDouble()).toFloat()
 
-                        // Ensure azimuth is between 0 and 359 degrees
+                        // Osigurava da azimut bude između 0 i 359 stupnjeva
                         if (azimuth < 0) {
                             azimuth += 360
                         }
@@ -1683,22 +1718,22 @@ class MainActivity : ComponentActivity() {
                 }
 
                 override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
-                    // No implementation needed
+                    // Nema implementacije
                 }
             }
 
-            val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-            val magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+            val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)  // Dohvaća senzor akcelerometra
+            val magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)  // Dohvaća senzor magnetometra
 
             sensorManager.registerListener(
                 sensorEventListener,
                 accelerometer,
-                SensorManager.SENSOR_DELAY_UI
+                SensorManager.SENSOR_DELAY_UI  // Registrira senzor akcelerometra
             )
             sensorManager.registerListener(
                 sensorEventListener,
                 magnetometer,
-                SensorManager.SENSOR_DELAY_UI
+                SensorManager.SENSOR_DELAY_UI  // Registrira senzor magnetometra
             )
 
             onDispose {
@@ -1706,12 +1741,12 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Animate the rotation value to ensure smooth transitions
+        // Animacija vrijednosti rotacije za osiguranje glatkih prijelaza
         val animatedRotation by animateFloatAsState(
             targetValue = rotation.value,
             animationSpec = tween(
-                durationMillis = 200, // Adjust the duration for smoother or quicker animations
-                easing = FastOutSlowInEasing // Easing function for natural movement
+                durationMillis = 200,  // Trajanje animacije za glatke ili brže prijelaze
+                easing = FastOutSlowInEasing
             )
         )
 
@@ -1750,12 +1785,12 @@ class MainActivity : ComponentActivity() {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        // Display the current rotation angle above the compass image
+                        // Prikazuje trenutni kut rotacije iznad slike kompasa
                         Text(
                             text = "${rotation.value.toInt()}°",
                             color = colorResource(id = R.color.white),
                             fontSize = 24.sp,
-                            modifier = Modifier.padding(bottom = 16.dp) // Adjust padding as needed
+                            modifier = Modifier.padding(bottom = 16.dp)
                         )
 
                         Image(
@@ -1763,7 +1798,7 @@ class MainActivity : ComponentActivity() {
                             contentDescription = "Compass",
                             modifier = Modifier
                                 .size(300.dp)
-                                .graphicsLayer(rotationZ = -animatedRotation) // Apply smooth rotation to the compass image
+                                .graphicsLayer(rotationZ = -animatedRotation)  // Primjena glatke rotacije na sliku kompasa
                         )
                     }
                 }
@@ -1772,88 +1807,27 @@ class MainActivity : ComponentActivity() {
     }
 
 
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    fun ItemScreen(navController: NavController, groupName: String) {
+    fun ItemScreen(navController: NavController, groupName: String?) {
         val context = LocalContext.current
-        val db = Firebase.firestore
-        val auth = FirebaseAuth.getInstance()
-        val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-
-        // Stanja za podatke o grupi, URL slike grupe, trenutnog korisnika i lokacija korisnika
-        val groupDetails = remember { mutableStateOf<Map<String, Any>?>(null) }
-        val groupImageUrl = remember { mutableStateOf<String?>(null) }
-        val currentUser = remember { mutableStateOf(auth.currentUser) }
         val currentUserName = remember { mutableStateOf("") }
-        val userLocations = remember { mutableStateOf<Map<String, LatLng>>(emptyMap()) }
-
-        // Stanja za dijeljenje lokacije
-        val isSharingLocation = remember { mutableStateOf(false) }
-        val isLocationSharedInGroup = remember { mutableStateOf(false) }
-        val locationState = remember { mutableStateOf<Location?>(null) }
+        val groupMembers = remember { mutableStateOf<List<String>>(emptyList()) }
+        val groupExists = remember { mutableStateOf(false) }
+        val groupImageUrl = remember { mutableStateOf<String?>(null) }
+        val auth = FirebaseAuth.getInstance()
+        val db = FirebaseFirestore.getInstance()
         val cameraPositionState = rememberCameraPositionState {
-            position = CameraPosition.fromLatLngZoom(LatLng(37.7749, -122.4194), 10f) // Zadana pozicija
+            // Početna pozicija kamere će se postaviti kasnije kada dobijemo lokaciju
         }
 
-        // Sanitizacija imena grupe i trenutnog korisnika
-        val sanitizedGroupName = groupName.trim()
-        val sanitizedCurrentUserName = currentUserName.value.trim()
+        val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }  // Instanca za dohvaćanje lokacije
+        val locationState = remember { mutableStateOf<Location?>(null) }  // Stanje za pohranu trenutne lokacije
+        val isLocationShared = remember { mutableStateOf(false) }  // Stanje za praćenje statusa dijeljenja lokacije
+        val sharedLocations = remember { mutableStateMapOf<String, UserLocation>() }  // Stanje za pohranu dijeljenih lokacija
 
-        // Provjeri postoji li grupa i da li je trenutni korisnik dijeli lokaciju
-        LaunchedEffect(sanitizedGroupName) {
-            val groupDocRef = db.collection("groups").document(sanitizedGroupName)
-
-            // Dohvati podatke o grupi
-            groupDocRef.get().addOnSuccessListener { documentSnapshot ->
-                if (documentSnapshot.exists()) {
-                    groupDetails.value = documentSnapshot.data
-                    groupImageUrl.value = documentSnapshot.getString("image") // Dohvati URL slike
-
-                    // Dohvati dijeljene lokacije
-                    groupDocRef.collection("shared_locations").get().addOnSuccessListener { querySnapshot ->
-                        userLocations.value = querySnapshot.documents.mapNotNull { document ->
-                            val latitude = document.getDouble("latitude")
-                            val longitude = document.getDouble("longitude")
-                            val user = document.getString("username")
-                            if (latitude != null && longitude != null && user != null && user != sanitizedCurrentUserName) {
-                                user to LatLng(latitude, longitude)
-                            } else {
-                                null
-                            }
-                        }.toMap()
-                    }
-
-                    // Provjeri je li lokacija trenutnog korisnika dijeljena
-                    groupDocRef.collection("shared_locations").document(sanitizedCurrentUserName).get().addOnSuccessListener { document ->
-                        isLocationSharedInGroup.value = document.exists()
-                        isSharingLocation.value = isLocationSharedInGroup.value
-                    }
-                }
-            }
-        }
-
-        // Dohvati ime trenutnog korisnika
-        LaunchedEffect(currentUser.value) {
-            currentUser.value?.let { user ->
-                val userDocRef = db.collection("users").document(user.uid)
-                userDocRef.get().addOnSuccessListener { document ->
-                    currentUserName.value = document.getString("username") ?: "Nepoznati korisnik"
-                }
-            }
-        }
-
-        // Ažuriraj stanje korisnika ako se promijeni stanje autentifikacije
-        DisposableEffect(auth) {
-            val authListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
-                currentUser.value = firebaseAuth.currentUser
-            }
-            auth.addAuthStateListener(authListener)
-            onDispose {
-                auth.removeAuthStateListener(authListener)
-            }
-        }
-
-        // Funkcija za ažuriranje pozicije kamere
+        // Funkcija za ažuriranje pozicije kamere na temelju lokacije
         fun updateCameraPosition(location: Location) {
             val newCameraPosition = CameraPosition.fromLatLngZoom(
                 LatLng(location.latitude, location.longitude),
@@ -1862,84 +1836,235 @@ class MainActivity : ComponentActivity() {
             cameraPositionState.position = newCameraPosition
         }
 
-        // Funkcija za početak dijeljenja lokacije
-        fun startSharingLocation() {
-            locationState.value?.let { location ->
-                val locationData = mapOf(
-                    "latitude" to location.latitude,
-                    "longitude" to location.longitude,
-                    "username" to sanitizedCurrentUserName
-                )
-                db.collection("groups").document(sanitizedGroupName)
-                    .collection("shared_locations")
-                    .document(sanitizedCurrentUserName)
-                    .set(locationData)
-                    .addOnSuccessListener {
-                        isSharingLocation.value = true
+        // Funkcija za zahtjev dozvole za pristup lokaciji
+        @OptIn(ExperimentalPermissionsApi::class)
+        @Composable
+        fun RequestLocationPermission(
+            onPermissionGranted: @Composable () -> Unit,
+            onPermissionDenied: () -> Unit
+        ) {
+            val permissionState = rememberPermissionState(permission = ACCESS_FINE_LOCATION)
+
+            // Pokretanje zahtjeva za dozvolu
+            LaunchedEffect(Unit) {
+                if (!permissionState.status.isGranted) {
+                    permissionState.launchPermissionRequest()
+                }
+            }
+
+            // Praćenje statusa dozvole
+            when (permissionState.status) {
+                is PermissionStatus.Granted -> onPermissionGranted()
+                is PermissionStatus.Denied -> {
+                    if ((permissionState.status as PermissionStatus.Denied).shouldShowRationale) {
+
                     }
+                    onPermissionDenied()
+                }
+                else -> {}
             }
         }
 
-        // Funkcija za prestanak dijeljenja lokacije
-        fun stopSharingLocation() {
-            db.collection("groups").document(sanitizedGroupName)
-                .collection("shared_locations")
-                .document(sanitizedCurrentUserName)
-                .delete()
-                .addOnSuccessListener {
-                    isSharingLocation.value = false
-                    userLocations.value = userLocations.value - sanitizedCurrentUserName
+        // Dohvaćanje korisničkog imena trenutnog korisnika iz Firebase Authentication
+        LaunchedEffect(Unit) {
+            val currentUser = auth.currentUser
+            if (currentUser != null) {
+                val userDocRef = db.collection("users").document(currentUser.uid)
+                userDocRef.get()
+                    .addOnSuccessListener { document ->
+                        val username = document.getString("username") ?: "Nepoznati korisnik"
+                        currentUserName.value = username
+                    }
+                    .addOnFailureListener {
+                        Toast.makeText(
+                            context,
+                            "Greška pri dohvaćanju korisničkog imena",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+            } else {
+                Toast.makeText(context, "Niste prijavljeni", Toast.LENGTH_SHORT).show()
+                navController.navigate("login") {
+                    popUpTo("home") { inclusive = true }
                 }
+            }
         }
 
-        // Periodična ažuriranja lokacije dok je dijeljena
-        DisposableEffect(isSharingLocation.value) {
-            var job: Job? = null
+        // Provjerava postoji li grupa i dohvaća članove i URL slike grupe
+        LaunchedEffect(groupName) {
+            groupName?.let { name ->
+                val groupDocRef = db.collection("groups").whereEqualTo("name", name)
+                groupDocRef.get()
+                    .addOnSuccessListener { documents ->
+                        if (!documents.isEmpty) {
+                            groupExists.value = true
+                            val groupDoc = documents.firstOrNull()
+                            val members = groupDoc?.get("members") as? List<String> ?: emptyList()
+                            groupMembers.value = members
 
-            if (isSharingLocation.value) {
-                job = CoroutineScope(Dispatchers.IO).launch {
-                    while (isSharingLocation.value) {
-                        locationState.value?.let { location ->
-                            val locationData = mapOf(
-                                "latitude" to location.latitude,
-                                "longitude" to location.longitude,
-                                "username" to sanitizedCurrentUserName
-                            )
-                            db.collection("groups").document(sanitizedGroupName)
-                                .collection("shared_locations")
-                                .document(sanitizedCurrentUserName)
-                                .set(locationData)
-                                .await()
+                            val imageUrl = groupDoc?.getString("image")
+                            groupImageUrl.value = imageUrl
+                        } else {
+                            groupExists.value = false
                         }
-                        delay(5000) // Ažuriraj svake 5 sekundi
                     }
-                }
-            }
-
-            onDispose {
-                job?.cancel()
+                    .addOnFailureListener {
+                        Toast.makeText(
+                            context,
+                            "Greška pri dohvaćanju podataka grupe",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
             }
         }
 
-        // Funkcija za zahtjev dozvole za lokaciju
+        // Zahtjev za dozvolu za pristup lokaciji i dohvaćanje trenutne lokacije
         RequestLocationPermission(
             onPermissionGranted = {
                 LaunchedEffect(Unit) {
                     try {
                         val location = fusedLocationClient.lastLocation.await()
-                        locationState.value = location
-                        location?.let { updateCameraPosition(it) }
+                        location?.let {
+                            locationState.value = it
+                            updateCameraPosition(it)
+                        }
                     } catch (e: SecurityException) {
-                        // Obradi iznimku ako dozvole za lokaciju nisu dodijeljene
+                        Toast.makeText(
+                            context,
+                            "Greška pri dohvaćanju lokacije",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             },
             onPermissionDenied = {
-                // Obradi slučaj kada korisnik odbije dozvolu za lokaciju
+                // Obrada slučaja kada korisnik odbije dozvolu za pristup lokaciji
+                Toast.makeText(context, "Dozvola za lokaciju je odbijena", Toast.LENGTH_SHORT)
+                    .show()
             }
         )
 
+        // Funkcija za dijeljenje ili prestanak dijeljenja lokacije
+        fun toggleLocationSharing() {
+            val location = locationState.value
+            val currentUser = auth.currentUser
+            val username = currentUserName.value
+            if (location != null && currentUser != null) {
+                val groupDocRef = db.collection("groups").document(groupName ?: "")
+                val userLocationRef = groupDocRef.collection("shared_locations").document(currentUser.uid)
+
+                if (isLocationShared.value) {
+                    // Uklanjanje lokacije iz "shared_locations"
+                    userLocationRef.delete()
+                        .addOnSuccessListener {
+                            Toast.makeText(
+                                context,
+                                "Dijeljenje lokacije zaustavljeno",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            isLocationShared.value = false
+                            sharedLocations.remove(currentUser.uid) // Uklanjanje iz mape
+                        }
+                        .addOnFailureListener {
+                            Toast.makeText(
+                                context,
+                                "Greška pri uklanjanju lokacije",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                } else {
+                    // Dodavanje lokacije u "shared_locations"
+                    val locationData = hashMapOf(
+                        "latitude" to location.latitude,
+                        "longitude" to location.longitude,
+                        "username" to username
+                    )
+
+                    userLocationRef.set(locationData)
+                        .addOnSuccessListener {
+                            Toast.makeText(
+                                context,
+                                "Lokacija uspješno podijeljena",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            isLocationShared.value = true
+                            sharedLocations[currentUser.uid] = UserLocation(location.latitude, location.longitude, username)
+                        }
+                        .addOnFailureListener {
+                            Toast.makeText(
+                                context,
+                                "Greška pri dijeljenju lokacije",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                }
+            } else {
+                Toast.makeText(
+                    context,
+                    "Nemoguće dijeliti lokaciju. Provjerite dozvole.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
+        // Provjerava status dijeljenja lokacije kada se stranica učita
+        LaunchedEffect(groupName) {
+            groupName?.let { name ->
+                val groupDocRef = db.collection("groups").document(name)
+                val currentUser = auth.currentUser
+
+                currentUser?.let { user ->
+                    val userLocationRef = groupDocRef.collection("shared_locations").document(user.uid)
+                    userLocationRef.get()
+                        .addOnSuccessListener { document ->
+                            if (document.exists()) {
+                                isLocationShared.value = true
+                            } else {
+                                isLocationShared.value = false
+                            }
+                        }
+                        .addOnFailureListener {
+                            Toast.makeText(
+                                context,
+                                "Greška pri dohvaćanju statusa dijeljenja lokacije",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                }
+            }
+        }
+
+        // Dohvaća sve dijeljene lokacije u grupi
+        LaunchedEffect(groupName) {
+            groupName?.let { name ->
+                val groupDocRef = db.collection("groups").document(name)
+                groupDocRef.collection("shared_locations").get()
+                    .addOnSuccessListener { documents ->
+                        val locationsMap = mutableMapOf<String, UserLocation>()
+                        for (document in documents) {
+                            val latitude = document.getDouble("latitude") ?: 0.0
+                            val longitude = document.getDouble("longitude") ?: 0.0
+                            val username = document.getString("username") ?: "Nepoznati korisnik"
+                            locationsMap[document.id] = UserLocation(latitude, longitude, username)
+                        }
+                        sharedLocations.putAll(locationsMap)
+                    }
+                    .addOnFailureListener {
+                        Toast.makeText(
+                            context,
+                            "Greška pri dohvaćanju dijeljenih lokacija",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+            }
+        }
+
         val borderColor = colorResource(id = R.color.grey)
+        val primaryColor = colorResource(id = R.color.primary_color)
+        val secondaryColor = colorResource(id = R.color.secondary_color)
+
+        // Definiraj boju gumba na temelju statusa dijeljenja lokacije
+        val buttonColor = if (isLocationShared.value) secondaryColor else primaryColor
 
         Scaffold(
             topBar = {
@@ -1954,191 +2079,141 @@ class MainActivity : ComponentActivity() {
                         )
                     },
                     colors = TopAppBarDefaults.smallTopAppBarColors(
-                        containerColor = colorResource(id = R.color.primary_color),
-                        titleContentColor = colorResource(id = R.color.white)
+                        containerColor = primaryColor,
+                        titleContentColor = Color.White
                     ),
                     modifier = Modifier
-                        .drawBehind {
-                            val strokeWidth = 1.dp.toPx()
-                            val y = size.height
-                            drawLine(
-                                color = borderColor,
-                                start = Offset(0f, y),
-                                end = Offset(size.width, y),
-                                strokeWidth = strokeWidth
-                            )
-                        }
+                        .border(1.dp, borderColor)
                 )
-            }
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            ) {
-                Box(
+            },
+            content = { padding ->
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .background(colorResource(id = R.color.primary_color))
+                        .fillMaxSize()
+                        .background(primaryColor)
+                        .padding(padding)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(colorResource(id = R.color.primary_color))
-                            .border(BorderStroke(1.dp, colorResource(id = R.color.grey)))
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = { navController.popBackStack() },
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.back_arrow),
-                                contentDescription = "Povratak",
-                                tint = colorResource(id = R.color.white),
-                                modifier = Modifier.size(25.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        // Slika grupe ili zamjenski prikaz
+                    // Informacije o grupi
+                    groupName?.let {
                         Box(
                             modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(Color.Gray) // Rezervna boja u slučaju problema s učitavanjem
+                                .fillMaxWidth()
+                                .background(colorResource(id = R.color.primary_color))
+                                .padding(horizontal = 32.dp, vertical = 8.dp)
                         ) {
-                            groupImageUrl.value?.let { imageUrl ->
-                                Image(
-                                    painter = rememberImagePainter(imageUrl),
-                                    contentDescription = "Slika grupe",
-                                    contentScale = ContentScale.Crop, // Obreži da odgovara krugu
-                                    modifier = Modifier.fillMaxSize()
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+
+                                IconButton(
+                                    onClick = { navController.popBackStack() },
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.back_arrow),
+                                        contentDescription = "Back",
+                                        tint = Color.White
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(16.dp))
+
+                                // Prikaz slike grupe ako je dostupna
+                                groupImageUrl.value?.let { imageUrl ->
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White)
+                                    ) {
+                                        val painter = rememberImagePainter(
+                                            data = imageUrl,
+                                            builder = {
+                                                crossfade(true)
+                                                placeholder(R.drawable.placeholder_image) // Zamijenite s vašom slikom za prikaz
+                                            }
+                                        )
+
+                                        Image(
+                                            painter = painter,
+                                            contentDescription = "Group Image",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(16.dp))
+
+                                // Prikaz imena grupe
+                                Text(
+                                    text = groupName,
+                                    color = Color.White,
+                                    fontSize = 20.sp,
+                                    modifier = Modifier.align(Alignment.CenterVertically)
                                 )
                             }
                         }
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        // Ime grupe
-                        Text(
-                            text = sanitizedGroupName,
-                            color = colorResource(id = R.color.white),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxSize()
-                ) {
-                    GoogleMap(
-                        modifier = Modifier.fillMaxSize(),
-                        cameraPositionState = cameraPositionState,
-                        properties = MapProperties(isMyLocationEnabled = true),
-                        uiSettings = MapUiSettings(compassEnabled = true)
-                    ) {
-                        // Dodaj oznake za lokacije korisnika
-                        userLocations.value.forEach { (user, position) ->
-                            Marker(
-                                state = MarkerState(position = position),
-                                title = user,
-                                snippet = "Lokacija $user",
-                                icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)
-                            )
-                        }
-
-                        // Prikaži plavu oznaku samo ako se dijeli lokacija
-                        if (isSharingLocation.value) {
-                            locationState.value?.let { location ->
-                                Marker(
-                                    state = MarkerState(position = LatLng(location.latitude, location.longitude)),
-                                    title = sanitizedCurrentUserName,
-                                    snippet = "Vaša lokacija",
-                                    icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)
-                                )
-                            }
-                        }
                     }
 
+                    // Google mapa
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                            .align(Alignment.BottomCenter)
+                            .weight(1f) // Pusti mapu da zauzme preostali prostor
+                            .fillMaxSize()
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
+                        GoogleMap(
+                            modifier = Modifier.fillMaxSize(),
+                            cameraPositionState = cameraPositionState,
+                            properties = MapProperties(isMyLocationEnabled = true),
+                            uiSettings = MapUiSettings(compassEnabled = true)
                         ) {
-                            Button(
-                                onClick = {
-                                    if (isSharingLocation.value) {
-                                        stopSharingLocation()
-                                    } else {
-                                        startSharingLocation()
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isSharingLocation.value)
-                                        colorResource(id = R.color.secondary_color)
-                                    else
-                                        colorResource(id = R.color.primary_color),
-                                    contentColor = Color.White
-                                ),
-                                modifier = Modifier.toggleable(
-                                    value = isSharingLocation.value,
-                                    onValueChange = {
-                                        if (it) {
-                                            startSharingLocation()
-                                        } else {
-                                            stopSharingLocation()
-                                        }
-                                    }
+                            // Prikaz markera za sve dijeljene lokacije
+                            sharedLocations.values.forEach { userLocation ->
+                                val location = LatLng(userLocation.latitude, userLocation.longitude)
+                                val markerColor = if (userLocation.username == currentUserName.value) {
+                                    BitmapDescriptorFactory.HUE_BLUE
+                                } else {
+                                    BitmapDescriptorFactory.HUE_GREEN
+                                }
+                                Marker(
+                                    state = MarkerState(position = location),
+                                    title = userLocation.username,
+                                    snippet = if (userLocation.username == currentUserName.value) "Tvoja lokacija" else "Podijeljena lokacija",
+                                    icon = BitmapDescriptorFactory.defaultMarker(markerColor)
                                 )
-                            ) {
-                                Text(text = if (isSharingLocation.value) "Prekini dijeljenje" else "Dijeli lokaciju")
                             }
+                        }
+
+                        // Gumb za dijeljenje lokacije na dnu karte
+                        Button(
+                            onClick = { toggleLocationSharing() },
+                            colors = ButtonDefaults.buttonColors(containerColor = buttonColor), // Postavi boju gumba na temelju statusa
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter) // Pozicioniranje gumba na dno karte
+                                .padding(16.dp)
+                        ) {
+                            Text(
+                                text = if (isLocationShared.value) "Zaustavi" else "Dijeli lokaciju",
+                                color = Color.White 
+                            )
                         }
                     }
                 }
             }
-        }
+        )
     }
 
-    // Funkcija za zahtjev dozvole za lokaciju
-    @OptIn(ExperimentalPermissionsApi::class)
-    @Composable
-    fun RequestLocationPermission(
-        onPermissionGranted: @Composable () -> Unit,
-        onPermissionDenied: () -> Unit
-    ) {
-        val permissionState = rememberPermissionState(permission = ACCESS_FINE_LOCATION)
+    data class UserLocation(
+        val latitude: Double,
+        val longitude: Double,
+        val username: String
+    )
 
-        // Pokreni zahtjev za dozvolu
-        LaunchedEffect(Unit) {
-            if (!permissionState.status.isGranted) {
-                permissionState.launchPermissionRequest()
-            }
-        }
-
-        // Prati status dozvole
-        when (permissionState.status) {
-            is PermissionStatus.Granted -> onPermissionGranted()
-            is PermissionStatus.Denied -> {
-                if ((permissionState.status as PermissionStatus.Denied).shouldShowRationale) {
-                    // Možda želite prikazati obrazloženje korisniku ovdje
-                }
-                onPermissionDenied()
-            }
-            else -> {} // Obradi druge statuse ako je potrebno
-        }
-    }
 
 
 }
