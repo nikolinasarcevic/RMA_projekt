@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "439987225501",
+    "project_id": "navigatour-26896",
+    "storage_bucket": "navigatour-26896.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:439987225501:android:9e07bfa577578f0cc9e574",
+        "android_client_info": {
+          "package_name": "com.example.navigatour_projekt"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCXBbBQLoIa-2R2iJ90Dj9fWFlULV6yCN8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
